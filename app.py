@@ -1815,53 +1815,144 @@ BOLETOS_POR_PLANILLA = 40  # Cambia esto según tus necesidades
 
 # ----------- FUNCIONES PARA VENDEDORES -----------
 
+# ============================================================
+#  RUTAS Y CONSTANTES (tus líneas originales, no se tocan)
+# ============================================================
+VENDEDORES_XML = os.path.join('static', 'db', 'vendedores.xml')
+ASIGNACIONES_XML = os.path.join('static', 'db', 'asignaciones.xml')
+BOLETOS_POR_PLANILLA = 40  # Cambia esto según tus necesidades
+
+# ----------- FUNCIONES PARA VENDEDORES -----------
+# (mantengo tu reasignación exacta, como la tienes)
 VENDEDORES_XML = 'static/db/vendedores.xml'
 
+
+# ============================================================
+#  UTILIDADES SEGURAS (nuevas)
+# ============================================================
+def _ensure_xml(path: str, root_tag: str = 'vendedores'):
+    """
+    Garantiza que exista el archivo XML y su carpeta.
+    Si no existe, lo crea con la etiqueta raíz indicada.
+    """
+    carpeta = os.path.dirname(path)
+    if carpeta and not os.path.exists(carpeta):
+        os.makedirs(carpeta, exist_ok=True)
+    if not os.path.exists(path):
+        root = ET.Element(root_tag)
+        tree = ET.ElementTree(root)
+        tree.write(path, encoding='utf-8', xml_declaration=True)
+
+
+def _read_tree_with_root(path: str, root_tag: str = 'vendedores'):
+    """
+    Asegura el XML y devuelve (tree, root) listos para usar.
+    """
+    _ensure_xml(path, root_tag)
+    tree = ET.parse(path)
+    root = tree.getroot()
+    # Si el root no coincide (por si se creó con otro tag), lo normalizamos
+    if root.tag != root_tag:
+        new_root = ET.Element(root_tag)
+        for child in list(root):
+            new_root.append(child)
+        tree._setroot(new_root)
+        root = new_root
+    return tree, root
+
+
+def _indent_tree_if_possible(tree: ET.ElementTree):
+    """
+    Intenta indentar (Python 3.9+) para que el XML quede legible.
+    """
+    try:
+        ET.indent(tree, space="  ", level=0)  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def _write_xml_atomic(tree: ET.ElementTree, path: str):
+    """
+    Escritura atómica: escribe a .tmp y luego reemplaza.
+    Evita corrupciones si el proceso se interrumpe.
+    """
+    tmp = f"{path}.tmp"
+    _indent_tree_if_possible(tree)
+    tree.write(tmp, encoding='utf-8', xml_declaration=True)
+    os.replace(tmp, path)
+
+
+# ============================================================
+#  CRUD DE VENDEDORES (robusto; respeta tu API)
+# ============================================================
 def cargar_vendedores_xml():
     vendedores = []
-    if not os.path.exists(VENDEDORES_XML):
-        return vendedores
-    tree = ET.parse(VENDEDORES_XML)
-    root = tree.getroot()
+    # Lee de forma segura (crea el archivo si no existe)
+    tree, root = _read_tree_with_root(VENDEDORES_XML, 'vendedores')
+
     for idx, v in enumerate(root.findall('vendedor')):
         vendedores.append({
-            'id': idx,  # Es importante para editar/eliminar por posición
-            'nombre': v.find('nombre').text,
-            'apellido': v.find('apellido').text,
-            'seudonimo': v.find('seudonimo').text
+            'id': idx,  # mantener índice para editar/eliminar
+            'nombre'  : (v.findtext('nombre') or '').strip(),
+            'apellido': (v.findtext('apellido') or '').strip(),
+            'seudonimo': (v.findtext('seudonimo') or '').strip(),
         })
     return vendedores
 
 
-
 def guardar_vendedor(nombre, apellido, seudonimo):
-    tree = ET.parse(VENDEDORES_XML)
-    root = tree.getroot()
+    # Normaliza strings
+    nombre = (nombre or '').strip()
+    apellido = (apellido or '').strip()
+    seudonimo = (seudonimo or '').strip()
+
+    tree, root = _read_tree_with_root(VENDEDORES_XML, 'vendedores')
+
+    # Agrega nuevo <vendedor>
     v = ET.SubElement(root, 'vendedor')
     ET.SubElement(v, 'nombre').text = nombre
     ET.SubElement(v, 'apellido').text = apellido
     ET.SubElement(v, 'seudonimo').text = seudonimo
-    tree.write(VENDEDORES_XML)
+
+    _write_xml_atomic(tree, VENDEDORES_XML)
+
 
 def editar_vendedor(idx, nombre, apellido, seudonimo):
-    tree = ET.parse(VENDEDORES_XML)
-    root = tree.getroot()
+    nombre = (nombre or '').strip()
+    apellido = (apellido or '').strip()
+    seudonimo = (seudonimo or '').strip()
+
+    tree, root = _read_tree_with_root(VENDEDORES_XML, 'vendedores')
     vendedores = root.findall('vendedor')
+
     if 0 <= idx < len(vendedores):
         v = vendedores[idx]
-        v.find('nombre').text = nombre
-        v.find('apellido').text = apellido
-        v.find('seudonimo').text = seudonimo
-        tree.write(VENDEDORES_XML)
+
+        def _set(tag, val):
+            el = v.find(tag)
+            if el is None:
+                el = ET.SubElement(v, tag)
+            el.text = val
+
+        _set('nombre', nombre)
+        _set('apellido', apellido)
+        _set('seudonimo', seudonimo)
+
+        _write_xml_atomic(tree, VENDEDORES_XML)
+
 
 def eliminar_vendedor(idx):
-    tree = ET.parse(VENDEDORES_XML)
-    root = tree.getroot()
+    tree, root = _read_tree_with_root(VENDEDORES_XML, 'vendedores')
     vendedores = root.findall('vendedor')
+
     if 0 <= idx < len(vendedores):
         root.remove(vendedores[idx])
-        tree.write(VENDEDORES_XML)
+        _write_xml_atomic(tree, VENDEDORES_XML)
 
+
+# ============================================================
+#  ENDPOINT /vendedores (idéntico en comportamiento)
+# ============================================================
 @app.route('/vendedores', methods=['GET', 'POST'])
 def vendedores():
     if request.method == 'POST':
@@ -1872,10 +1963,12 @@ def vendedores():
             seudonimo = request.form['seudonimo'].strip()
             editar_vendedor(idx, nombre, apellido, seudonimo)
             flash("Vendedor editado correctamente.", "success")
+
         elif 'eliminar' in request.form:
             idx = int(request.form['id'])
             eliminar_vendedor(idx)
             flash("Vendedor eliminado.", "info")
+
         else:
             nombre = request.form['nombre'].strip()
             apellido = request.form['apellido'].strip()
@@ -1885,10 +1978,13 @@ def vendedores():
                 flash("¡Vendedor agregado!", "success")
             else:
                 flash("Todos los campos son obligatorios.", "danger")
+
         return redirect(url_for('vendedores'))
-    # ¡Aquí está el detalle!
-    vendedores = cargar_vendedores_xml()
-    return render_template('vendedores.html', vendedores=vendedores)
+
+    # GET: cargar y renderizar
+    vendedores_list = cargar_vendedores_xml()
+    return render_template('vendedores.html', vendedores=vendedores_list)
+
 
 
 # ----------- FUNCIONES PARA ASIGNACIONES -----------
