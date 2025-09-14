@@ -843,8 +843,8 @@ for fname in [
 # ─── LAYOUT ───────────────────────────────────
 MARGEN_IZQ     = 20
 MARGEN_SUP     = 60
-ESPACIO_X      = 100
-ESPACIO_Y      = 115
+ESPACIO_X      = 110
+ESPACIO_Y      = 85
 COLUMNAS       = 2
 FILAS          = 4
 
@@ -864,15 +864,17 @@ SERIE_MAP = {
     "Srs_Manila.xlsx":"M"
 }
 
+# ── OFFSETS EN CÓDIGO (boleto 0…7) ──
+# Ajusta aquí X/Y para grid, info y reintegro de cada boleto:
 per_cell_offsets = {
-    0: {"grid_x": -100, "grid_y": 20,  "info_x": 5,   "info_y": 25,  "rein_x": 225, "rein_y": 30},
-    1: {"grid_x": -155, "grid_y": 20,  "info_x": -60, "info_y": 25,  "rein_x": 170, "rein_y": 30},
-    2: {"grid_x": -100, "grid_y": 75,  "info_x": 5,   "info_y": 80,  "rein_x": 225, "rein_y": -25},
-    3: {"grid_x": -155, "grid_y": 75,  "info_x": -60, "info_y": 80,  "rein_x": 170, "rein_y": -25},
-    4: {"grid_x": -100, "grid_y": 133, "info_x": 5,   "info_y": 143, "rein_x": 225, "rein_y": -85},
-    5: {"grid_x": -155, "grid_y": 133, "info_x": -60, "info_y": 143, "rein_x": 170, "rein_y": -85},
-    6: {"grid_x": -100, "grid_y": 195, "info_x": 5,   "info_y": 200, "rein_x": 225, "rein_y": -145},
-    7: {"grid_x": -155, "grid_y": 195, "info_x": -60, "info_y": 200, "rein_x": 170, "rein_y": -145},
+    0: {"grid_x": +15, "grid_y": 28,  "info_x": 110,  "info_y": 48, "rein_x": 45,  "rein_y": 25},
+    1: {"grid_x": -45, "grid_y": 28,  "info_x": 45,  "info_y": 48, "rein_x": -15, "rein_y": 25},
+    2: {"grid_x": +15, "grid_y": 80,  "info_x": 110,  "info_y": 98, "rein_x": 45,  "rein_y": -20},
+    3: {"grid_x": -45, "grid_y": 80,  "info_x": 45,  "info_y": 98, "rein_x": -15, "rein_y": -20},
+    4: {"grid_x": +15, "grid_y": 130, "info_x": 110,   "info_y":150, "rein_x": 45,  "rein_y": -70},
+    5: {"grid_x": -45, "grid_y": 130, "info_x": 45,  "info_y": 150, "rein_x": -15, "rein_y": -70},
+    6: {"grid_x": +15, "grid_y": 185, "info_x": 110,  "info_y": 200, "rein_x": 45,  "rein_y": -120},
+    7: {"grid_x": -45, "grid_y": 185, "info_x": 45,  "info_y": 200, "rein_x": -15, "rein_y": -120},
 }
 
 # ================== LOGS XML ==================
