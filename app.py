@@ -866,8 +866,8 @@ SERIE_MAP = {
 # ── OFFSETS EN CÓDIGO (boleto 0…7) ──
 # Ajusta aquí X/Y para grid, info y reintegro de cada boleto:
 per_cell_offsets = {
-    0: {"grid_x": +15, "grid_y": 28,  "info_x": 110,  "info_y": 48, "rein_x": 45,  "rein_y": 25},
-    1: {"grid_x": -45, "grid_y": 28,  "info_x": 45,  "info_y": 48, "rein_x": -15, "rein_y": 25},
+    0: {"grid_x": +15, "grid_y": 30,  "info_x": 110,  "info_y": 52, "rein_x": 45,  "rein_y": 25},
+    1: {"grid_x": -45, "grid_y": 30,  "info_x": 45,  "info_y": 50, "rein_x": -15, "rein_y": 25},
     2: {"grid_x": +15, "grid_y": 80,  "info_x": 110,  "info_y": 98, "rein_x": 45,  "rein_y": -20},
     3: {"grid_x": -45, "grid_y": 80,  "info_x": 45,  "info_y": 98, "rein_x": -15, "rein_y": -20},
     4: {"grid_x": +15, "grid_y": 130, "info_x": 110,   "info_y":150, "rein_x": 45,  "rein_y": -70},
