@@ -1,27 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "==> Preparando DISCO persistente y enlaces…"
+
 BASE="/opt/render/project/src"
-DATA="/data"
+DATA="/data"     # Disco persistente de Render
+
 cd "$BASE"
 
-echo "==> Preparando DISCO persistente en $DATA ..."
+# 1) Carpetas persistentes en /data
+mkdir -p "$DATA/DB" "$DATA/usuarios" "$DATA/CAJA" "$DATA/REINTEGROS" "$DATA/CONTABILIDAD" "$DATA/logs" "$DATA/EXPORTS"
 
-# 1) Carpetas persistentes
-mkdir -p "$DATA/DB" "$DATA/usuarios" "$DATA/CAJA" "$DATA/REINTEGROS" "$DATA/logs" "$DATA/EXPORTS"
-
-# 2) Sembrar DB XMLs la primera vez
-if [ -z "$(ls -A "$DATA/DB" 2>/dev/null)" ]; then
-  echo "Sembrando XML de static/db -> /data/DB ..."
-  cp -n static/db/*.xml "$DATA/DB/" 2>/dev/null || true
-fi
-
-# 3) usuarios.xml persistente
+# 2) Semillas (solo si faltan en /data)
+# --- usuarios.xml
 if [ ! -f "$DATA/usuarios/usuarios.xml" ]; then
   if [ -f static/db/usuarios.xml ]; then
     cp static/db/usuarios.xml "$DATA/usuarios/usuarios.xml"
+  elif [ -f DATA/usuarios/usuarios.xml ]; then
+    cp DATA/usuarios/usuarios.xml "$DATA/usuarios/usuarios.xml"
   else
-    cat > "$DATA/usuarios/usuarios.xml" <<EOF
+    cat > "$DATA/usuarios/usuarios.xml" <<'EOF'
 <?xml version="1.0" encoding="utf-8"?>
 <usuarios>
   <usuario>
@@ -37,12 +35,21 @@ EOF
   fi
 fi
 
-# 4) caja.xml persistente
+# --- caja.xml
 if [ ! -f "$DATA/CAJA/caja.xml" ]; then
-  cat > "$DATA/CAJA/caja.xml" <<EOF
+  if [ -f static/CAJA/caja.xml ]; then
+    cp static/CAJA/caja.xml "$DATA/CAJA/caja.xml"
+  elif [ -f static/db/caja.xml ]; then
+    cp static/db/caja.xml "$DATA/CAJA/caja.xml"
+  elif [ -f DATA/CAJA/caja.xml ]; then
+    cp DATA/CAJA/caja.xml "$DATA/CAJA/caja.xml"
+  else
+    # Caja mínima
+    today="$(date +%Y-%m-%d)"
+    cat > "$DATA/CAJA/caja.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <caja>
-  <dia fecha="$(date +%Y-%m-%d)">
+  <dia fecha="$today">
     <configuracion>
       <valor_boleto>1.00</valor_boleto>
       <comision_vendedor>0.30</comision_vendedor>
@@ -52,30 +59,66 @@ if [ ! -f "$DATA/CAJA/caja.xml" ]; then
   </dia>
 </caja>
 EOF
+  fi
 fi
 
-# 5) Logs persistentes
-mkdir -p instance/gl_bingo
-rm -rf instance/gl_bingo/logs || true
-ln -sfn "$DATA/logs" instance/gl_bingo/logs
+# --- CONTABILIDAD (bancos, gastos, sueldos, ventas)
+for f in bancos.xml gastos.xml sueldos.xml ventas.xml; do
+  [ -f "$DATA/CONTABILIDAD/$f" ] && continue
+  if   [ -f static/CONTABILIDAD/$f ]; then cp static/CONTABILIDAD/$f "$DATA/CONTABILIDAD/$f"
+  elif [ -f DATA/CONTABILIDAD/$f   ]; then cp DATA/CONTABILIDAD/$f   "$DATA/CONTABILIDAD/$f"
+  fi
+done
+
+# --- DB (todos los XML de static/db excepto caja y usuarios)
+shopt -s nullglob
+for src in static/db/*.xml; do
+  bn="$(basename "$src")"
+  case "$bn" in
+    caja.xml|usuarios.xml) continue ;;
+  esac
+  [ -f "$DATA/DB/$bn" ] || cp "$src" "$DATA/DB/$bn"
+done
+shopt -u nullglob
+
+# --- Logs
 [ -f "$DATA/logs/impresiones.xml" ] || echo "<impresiones/>" > "$DATA/logs/impresiones.xml"
 
-# 6) static/db apunta al DISCO
+# 3) Enlaces (symlinks) para que la app SIEMPRE escriba en /data
+
+# Logs de la app
+mkdir -p instance/gl_bingo
+rm -rf instance/gl_bingo/logs || true
+ln -s "$DATA/logs" instance/gl_bingo/logs
+
+# static/db como carpeta real con symlinks hacia /data/DB
 rm -rf static/db || true
 mkdir -p static/db
-for f in "$DATA/DB"/*.xml; do
-  [ -e "$f" ] || continue
-  ln -sfn "$f" "static/db/$(basename "$f")"
+for src in "$DATA/DB"/*.xml; do
+  [ -e "$src" ] || continue
+  ln -sf "$src" "static/db/$(basename "$src")"
 done
-ln -sfn "$DATA/usuarios/usuarios.xml" static/db/usuarios.xml
-ln -sfn "$DATA/CAJA/caja.xml"      static/db/caja.xml
+# y apuntamos usuarios & caja a sus rutas persistentes
+ln -sf "$DATA/usuarios/usuarios.xml" static/db/usuarios.xml
+ln -sf "$DATA/CAJA/caja.xml"       static/db/caja.xml
 
-# 7) Compatibilidad DATA/...
-mkdir -p DATA
-for d in DB usuarios CAJA REINTEGROS logs; do
+# static/CONTABILIDAD y static/CAJA hacia /data
+rm -rf static/CONTABILIDAD || true
+ln -s "$DATA/CONTABILIDAD" static/CONTABILIDAD
+
+rm -rf static/CAJA || true
+ln -s "$DATA/CAJA" static/CAJA
+
+# Directorios DATA/… (compatibilidad con tu código)
+for d in usuarios CAJA REINTEGROS CONTABILIDAD; do
   rm -rf "DATA/$d" || true
-  ln -sfn "$DATA/$d" "DATA/$d"
+  ln -s "$DATA/$d" "DATA/$d"
 done
 
-echo "==> Persistencia lista. Iniciando Gunicorn..."
-exec gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 120
+# (opcional) carpeta de exportaciones
+rm -rf static/EXPORTS || true
+ln -s "$DATA/EXPORTS" static/EXPORTS
+
+echo "==> Persistencia lista. Iniciando Gunicorn…"
+# Timeout alto para generación de planillas pesadas
+exec gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 1200
