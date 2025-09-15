@@ -1,0 +1,22 @@
+📌 CMD paso a paso para subir tus cambios
+
+Entra a la carpeta del proyecto:
+
+cd "D:\GL STUDIOS\SISTEMA PUEBLOVIEJO\super-sorteo-puebloviejo-ec"
+
+
+Agregar los cambios al “staging area”:
+
+git add .
+
+
+(el . significa que agrega todos los archivos modificados).
+
+Hacer el commit con un mensaje (puedes poner lo que quieras en el mensaje):
+
+git commit -m "Actualización de códigos"
+
+
+Subir al repositorio remoto en GitHub:
+
+git push origin main
